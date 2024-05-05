@@ -3,37 +3,36 @@
 #define STB_SPRINTF_IMPLEMENTATION
 #include "../vendor/stb_sprintf.h"
 
+#include <string.h>
+
 StringBuilder::StringBuilder(void) {
-    start = null;
-    current = null;
-    count = 0;
+    start          = null;
+    current        = null;
+    count          = 0;
     allocator_data = null;
-    allocator = default_allocator;
+    allocator      = default_allocator;
 }
 
 void StringBuilder::init(Allocator _allocator, void *_allocator_data) {
-    allocator = _allocator;
+    allocator      = _allocator;
     allocator_data = _allocator_data;
 }
 
 void StringBuilder::maybe_grow(s64 length_to_add) {
+    Assert(length_to_add > 0);
     // we commit new chunk to the builder if it's empty or the space is not sufficient
     if ((start == null) || (length_to_add > (STRING_BUFFER_INSTANCE_LENGTH - current->count))) {    
-        s64 chunk_size = STRING_BUFFER_INSTANCE_LENGTH;
-        if (length_to_add > STRING_BUFFER_INSTANCE_LENGTH) {
-            // custom chunck length
-            chunk_size = length_to_add;
-        }
+        // custom chunck size
+        s64 chunk_size = Max(length_to_add, STRING_BUFFER_INSTANCE_LENGTH);
 
-        u8 *bytes = (u8 *)allocator(ALLOCATOR_ALLOCATE, size_of(StringNode) + chunk_size, 0, null, allocator_data, 0);
-        StringNode *node = (StringNode *)bytes;
+        StringNode *node = (StringNode *)allocator(ALLOCATOR_ALLOCATE, size_of(StringNode) + chunk_size, 0, null, allocator_data, 0);
         if (node) {
             node->count = 0;
             node->next = null;
-            node->data = bytes + size_of(StringNode);
+            node->data = ((u8 *)node) + size_of(StringNode);
 
             if (start == null) { // first time we append to the builder
-                start = node;
+                start   = node;
                 current = start;
             } else {
                 current->next = node;
