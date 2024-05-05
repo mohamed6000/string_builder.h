@@ -3,8 +3,6 @@
 #define STB_SPRINTF_IMPLEMENTATION
 #include "../vendor/stb_sprintf.h"
 
-#include <string.h>
-
 StringBuilder::StringBuilder(void) {
     start = null;
     current = null;
@@ -19,30 +17,28 @@ void StringBuilder::init(Allocator _allocator, void *_allocator_data) {
 }
 
 void StringBuilder::maybe_grow(s64 length_to_add) {
-    // first time we append to the builder
-    if (start == null) {
-        u8 *bytes = (u8 *)allocator(ALLOCATOR_ALLOCATE, size_of(StringNode) + STRING_BUFFER_INSTANCE_LENGTH, 0, null, allocator_data, 0);
-        start = (StringNode *)bytes;
-        if (start) {
-            start->count = 0;
-            start->next = null;
-            start->data = bytes + size_of(StringNode);
-
-            current = start; // we always operate on the current string buffer
+    // we commit new chunk to the builder if it's empty or the space is not sufficient
+    if ((start == null) || (length_to_add > (STRING_BUFFER_INSTANCE_LENGTH - current->count))) {    
+        s64 chunk_size = STRING_BUFFER_INSTANCE_LENGTH;
+        if (length_to_add > STRING_BUFFER_INSTANCE_LENGTH) {
+            // custom chunck length
+            chunk_size = length_to_add;
         }
-        return;
-    }
 
-    if (length_to_add > (STRING_BUFFER_INSTANCE_LENGTH - current->count)) { // we need to append a new chunk to the builder
-        u8 *bytes = (u8 *)allocator(ALLOCATOR_ALLOCATE, size_of(StringNode) + STRING_BUFFER_INSTANCE_LENGTH, 0, null, allocator_data, 0);
+        u8 *bytes = (u8 *)allocator(ALLOCATOR_ALLOCATE, size_of(StringNode) + chunk_size, 0, null, allocator_data, 0);
         StringNode *node = (StringNode *)bytes;
         if (node) {
             node->count = 0;
             node->next = null;
             node->data = bytes + size_of(StringNode);
 
-            current->next = node;
-            current = node;
+            if (start == null) { // first time we append to the builder
+                start = node;
+                current = start;
+            } else {
+                current->next = node;
+                current = node;
+            }
         }
     }
 }
@@ -70,7 +66,6 @@ void StringBuilder::append(char *s, s64 length) {
 }
 
 void StringBuilder::append(u8 byte) {
-    Assert(s != null);
     maybe_grow(size_of(byte));
 
     u8 *dest = current->data + current->count;
